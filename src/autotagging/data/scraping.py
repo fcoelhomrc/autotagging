@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_dir(item: VintedItem) -> Path:
+    """
+    Creates a directory entry for the item. 
+    """
     if item.id is None:
         raise ValueError("No Item ID found!")
 
@@ -31,6 +34,9 @@ def create_dir(item: VintedItem) -> Path:
 
 
 def query(search_text: str) -> List[VintedItem]:
+    """
+    Passes text query to Vinted and extracts information from search results page.  
+    """
     scraper = VintedScraper("https://www.vinted.com")  # init the scraper with the baseurl
     params = {
         "search_text": search_text
@@ -44,7 +50,9 @@ def query(search_text: str) -> List[VintedItem]:
 
 
 def process_response(items: List[VintedItem]):
-
+    """
+    Extracts data from each item obtained from query. 
+    """
     for item in items:
         dir_name = create_dir(item)
         # Extract information
@@ -58,6 +66,10 @@ def process_response(items: List[VintedItem]):
 
 
 def get_metadata_from_vinted_item(item: VintedItem) -> dict:
+    """
+    Extracts metadata from Vinted item.
+    TODO: Missing data only available in listing page! 
+    """
     metadata = {
         "category": "clothing",
         "id": item.id, 
@@ -77,7 +89,11 @@ def get_metadata_from_vinted_item(item: VintedItem) -> dict:
         return 
     return metadata
 
+
 def headers():
+    """
+    Request headers to avoid being blocked as bot.
+    """
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -88,11 +104,17 @@ def headers():
     return headers
 
 def avoid_rate_limit():
+    """
+    Randomized wait time between requests. 
+    """
     sleep(random.uniform(
         0.75 * RATE_LIMIT_WAIT, 1.25*RATE_LIMIT_WAIT
     ))
 
 def get_image_urls_from_vinted_item(item: VintedItem) -> List[str]:
+    """
+    Attempts to find all product photos in the listing. 
+    """
     response = requests.get(item.url, headers=headers())
     response.raise_for_status()
 
@@ -105,7 +127,7 @@ def get_image_urls_from_vinted_item(item: VintedItem) -> List[str]:
         
         # Filters 
         if not img_url:
-            continue 
+            continue  # No image found 
         if img_url.endswith(".svg"):  
             continue  # Likely to be frontend asset 
         if img.find_parent("div", class_="item-page-sidebar-content"):
@@ -119,6 +141,10 @@ def get_image_urls_from_vinted_item(item: VintedItem) -> List[str]:
 
 
 def request_images(urls: str, base_dir: Path):
+    """
+    Downloads images from list of urls. 
+    """
+
     download_dir = base_dir / "images"
     download_dir.mkdir(exist_ok=True)
     downloaded = 0 
