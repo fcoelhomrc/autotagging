@@ -29,11 +29,11 @@ def create_dir(item: VintedItem) -> Path:
         raise ValueError("No Item ID found!")
 
     dir_name = Path(DATASET_ROOT_DIR) / str(item.id)
-    dir_name.mkdir(exist_ok=True, parents=True)
+    dir_name.mkdir(parents=True)  # Throws exception if exists!
     return dir_name
 
 
-def query(search_text: str) -> List[VintedItem]:
+def query(search_text: str, max_hits: int = 100) -> List[VintedItem]:
     """
     Passes text query to Vinted and extracts information from search results page.
     """
@@ -48,15 +48,22 @@ def query(search_text: str) -> List[VintedItem]:
     items = scraper.search(params)  # get all the items
     if len(items) < 1:
         logger.error(f"Query {params['search_text']} did not return any items")
+    if len(items) > max_hits:
+        return items[:max_hits]
     return items
 
 
-def process_response(items: List[VintedItem]):
+def process_response(items: List[VintedItem], search_text: Optional[str] = None):
     """
     Extracts data from each item obtained from query.
+    Note: pass search_text to store original query in metadata.
     """
     for item in items:
-        dir_name = create_dir(item)
+        try:
+            dir_name = create_dir(item)
+        except FileExistsError:
+            logger.info(f"Item ID {item.id} is already in the dataset! Skipping...")
+            continue
         # Extract information
         soup = get_item_listing_from_vinted_item(item)
         metadata = get_metadata_from_vinted_item(item)
@@ -73,6 +80,8 @@ def process_response(items: List[VintedItem]):
         else:
             metadata.update(metadata_from_listing)
 
+        # Extend with original search query
+        metadata["search_text"] = search_text
         logger.info(f"Merged metadata: {metadata}")
 
         # Write to file
@@ -284,7 +293,7 @@ def parse_image_urls_from_listing(item: VintedItem, soup: BeautifulSoup) -> List
         full_img_url = urljoin(item.url, img_url)
         urls.append(full_img_url)
 
-    logger.info(f"Found {len(urls)} in listing {item.id}")
+    logger.info(f"Found {len(urls)} image urls in listing {item.id}")
     return urls
 
 
