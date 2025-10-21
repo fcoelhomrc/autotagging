@@ -37,3 +37,13 @@ explicit = true
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "black",
+    "ruff",
+    "mypy",
+    "types-PyYAML",
+]
+
