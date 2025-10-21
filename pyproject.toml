@@ -45,5 +45,6 @@ dev = [
     "ruff",
     "mypy",
     "types-PyYAML",
+    "types-requests",
 ]
 
