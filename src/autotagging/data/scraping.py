@@ -7,11 +7,11 @@ import random
 
 import requests
 from urllib.parse import urljoin
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 import json
 
 from vinted_scraper import VintedScraper
-from vinted_scraper.models import VintedItem, VintedImage
+from vinted_scraper.models import VintedItem
 
 
 DATASET_ROOT_DIR = "dataset_auto"
@@ -68,7 +68,11 @@ def process_response(items: List[VintedItem]):
         logger.info(f"Extracted metadata: {metadata_from_listing}")
 
         # Merge dicts
-        metadata.update(metadata_from_listing)
+        if metadata is None:
+            metadata = metadata_from_listing
+        else:
+            metadata.update(metadata_from_listing)
+
         logger.info(f"Merged metadata: {metadata}")
 
         # Write to file
@@ -78,7 +82,7 @@ def process_response(items: List[VintedItem]):
         request_images(image_urls, dir_name)
 
 
-def get_metadata_from_vinted_item(item: VintedItem) -> dict:
+def get_metadata_from_vinted_item(item: VintedItem) -> Optional[dict]:
     """
     Extracts metadata from Vinted item.
     TODO: Missing data only available in listing page!
@@ -93,14 +97,15 @@ def get_metadata_from_vinted_item(item: VintedItem) -> dict:
         "status": item.status,
         "size": item.size,
         "color": None,
+        "material": None,
         # TODO: no attribute gender is available!
     }
 
     try:
-        json_string = json.dumps(metadata)
-    except TypeError as e:
+        _ = json.dumps(metadata)  # Test if data is valid JSON
+    except TypeError:
         logger.error("Cannot convert metadata to JSON format!")
-        return
+        return None
     return metadata
 
 
@@ -136,12 +141,16 @@ def get_item_listing_from_vinted_item(item: VintedItem) -> BeautifulSoup:
 
 def get_child_tag_from_class(
     parent_tag, tag_name: str, class_name: str | List[str]
-) -> Optional[str]:
+) -> Optional[Tag]:
+    if parent_tag is None:
+        return None
     match_ = parent_tag.find(tag_name, class_=class_name)
-    return match_
+    return match_  # Might be a tag in some edge cases
 
 
 def get_value_from_tag(tag):
+    if tag is None:
+        return None
     return tag.get_text(strip=True) if tag else None
 
 
@@ -159,7 +168,7 @@ def get_child_value_from_itemprop(
     return get_value_from_tag(match_)
 
 
-def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str]:
+def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str | None]:
 
     # Metadata
     metadata = {}
@@ -192,10 +201,11 @@ def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str]:
     )
     metadata["size"] = value
 
-    # Color
-    color_tag = soup.find("div", class_="details-list__item-value", itemprop="color")
+    # Material
+    # TODO: Parse "Material1, Material2" into a list of strings
+    material_tag = soup.find("div", itemprop="material")
     value = get_child_value_from_class(
-        color_tag,
+        material_tag,
         tag_name="span",
         class_name=[
             "web_ui__Text__text",
@@ -204,10 +214,11 @@ def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str]:
             "web_ui__Text__bold",
         ],
     )
-    metadata["color"] = value
+    metadata["material"] = value
 
     # Color
-    color_tag = soup.find("div", class_="details-list__item-value", itemprop="color")
+    # TODO: Parse "Color1, Color2" into a list of strings
+    color_tag = soup.find("div", itemprop="color")
     value = get_child_value_from_class(
         color_tag,
         tag_name="span",
@@ -243,7 +254,10 @@ def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str]:
             "web_ui__Text__format",
         ],
     )
-    value = get_value_from_tag(description_tag.find("span"))
+    if description_tag is None:
+        value = None
+    else:
+        value = get_value_from_tag(description_tag.find("span"))
     metadata["description"] = value
 
     return metadata
@@ -262,7 +276,7 @@ def parse_image_urls_from_listing(item: VintedItem, soup: BeautifulSoup) -> List
         # Filters
         if not img_url:
             continue  # No image found
-        if img_url.endswith(".svg"):
+        if isinstance(img_url, str) and img_url.endswith(".svg"):
             continue  # Likely to be frontend asset
         if img.find_parent("div", class_="item-page-sidebar-content"):
             continue  # Likely to be user profile picture
@@ -274,7 +288,7 @@ def parse_image_urls_from_listing(item: VintedItem, soup: BeautifulSoup) -> List
     return urls
 
 
-def request_images(urls: str, base_dir: Path):
+def request_images(urls: List[str], base_dir: Path):
     """
     Downloads images from list of urls.
     """
@@ -299,7 +313,7 @@ def request_images(urls: str, base_dir: Path):
 
             downloaded += 1
             avoid_rate_limit()
-        except Exception as error:
+        except Exception:
             logger.exception(
                 f"Failed downloading {url}",
             )

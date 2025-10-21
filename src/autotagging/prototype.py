@@ -1,5 +1,5 @@
-from ollama import chat, generate
-from ollama import ChatResponse, GenerateResponse
+from ollama import generate
+from ollama import GenerateResponse
 from pydantic import BaseModel
 import json
 import base64
