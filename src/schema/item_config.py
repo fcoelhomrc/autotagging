@@ -1,4 +1,4 @@
-from item_config import Enum
+from enum import Enum
 
 class Category(Enum):
     Clothes = "clothes"

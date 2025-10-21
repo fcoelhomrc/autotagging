@@ -9,28 +9,48 @@ from pathlib import Path
 from src.schema.item_config import *
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Item:
     """
     Represents an item in your shop.
     """
-
-    #id: str = field(default_factory=lambda: str(uuid4())) #TODO: Should we use it? I leave it for now
-    title: str = ""
-    description: str = ""
-    price: float = 0.0
-    images: List[Path] = field(default_factory=list)
+    def __init__(self,
+                 id: int,
+                 path: Path,
+                 category: str = "",
+                 title: str = "",
+                 description: str = "",
+                 **kwargs):
+        self.id = id
+        self.path = path
+        self.category = category
+        self.title = title
+        self.description = description
+        self.images = self.fetch_available_images()
 
     def __repr__(self):
-        return f"<Item {self.title!r} ({self.brand}) - {self.condition}>"
+        return f"<Item {self.id}>"
 
+    # def __post_init__(self):
+    #     pass
+
+    def fetch_available_images(self) -> List[Path]:
+        return list((self.path / "images").rglob("*"))
 
 
 @dataclass
 class Clothing(Item):
+    """
+    Represents a clothing item with specific attributes for apparel.
+    """
     brand: str
-    condition: Condition
-    size: Optional[ClothSize] = None
+    status: Condition
+    color: List[str] = field(default_factory=list)
     material: Optional[str] = None
-    gender: Gender = None
+    #gender: Gender = Gender.UNISEX
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __repr__(self):
+        return f"<Clothe({len(self.images)}): {self.id}>"
