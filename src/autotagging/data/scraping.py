@@ -2,12 +2,14 @@ import logging
 import os
 from typing import Optional, List, Dict
 from pathlib import Path
-from time import sleep
+import time 
 import random
 
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup, Tag
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 
 from vinted_scraper import VintedScraper
@@ -16,7 +18,7 @@ from vinted_scraper.models import VintedItem
 
 DATASET_ROOT_DIR = "dataset_auto"
 IMAGE_EXT = "jpg"  # TODO: check this
-RATE_LIMIT_WAIT = 2  # seconds
+RATE_LIMIT_WAIT = 5  # seconds
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,9 @@ def process_response(items: List[VintedItem], search_text: Optional[str] = None)
     Extracts data from each item obtained from query.
     Note: pass search_text to store original query in metadata.
     """
+    session = create_session()
+    logger.info("Created session...")
+
     for item in items:
         try:
             dir_name = create_dir(item)
@@ -65,7 +70,10 @@ def process_response(items: List[VintedItem], search_text: Optional[str] = None)
             logger.info(f"Item ID {item.id} is already in the dataset! Skipping...")
             continue
         # Extract information
-        soup = get_item_listing_from_vinted_item(item)
+        soup = get_item_listing_from_vinted_item(item, session=session)
+        if soup is None:
+            logger.warning(f"Cannot proceed with {item.url}, skipping...")
+            continue 
         metadata = get_metadata_from_vinted_item(item)
 
         logger.info(f"Processing listing: {metadata['url']}")
@@ -90,7 +98,7 @@ def process_response(items: List[VintedItem], search_text: Optional[str] = None)
         with open(dir_name / "metadata.json", "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=4, ensure_ascii=False)
         # Download images
-        request_images(image_urls, dir_name)
+        request_images(image_urls, dir_name, session=session)
 
 
 def get_metadata_from_vinted_item(item: VintedItem) -> Optional[dict]:
@@ -124,7 +132,7 @@ def headers():
     """
     Request headers to avoid being blocked as bot.
     """
-    headers = {
+    return {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -132,22 +140,55 @@ def headers():
         ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Referer": "https://www.vinted.com/",
+        "Origin": "https://www.vinted.com/",
+        "DNT": "1",
+        # These sec-* headers are not mandatory but make requests more browser-like
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Upgrade-Insecure-Requests": "1",
     }
-    return headers
 
 
-def avoid_rate_limit():
-    """
-    Randomized wait time between requests.
-    """
-    sleep(random.uniform(0.75 * RATE_LIMIT_WAIT, 1.25 * RATE_LIMIT_WAIT))
+
+def avoid_rate_limit(base_wait=RATE_LIMIT_WAIT):
+    """Randomized wait time with jitter and occasional long pauses."""
+    sleep_time = random.uniform(0.75 * base_wait, 1.5 * base_wait)
+    time.sleep(sleep_time)
+    # Occasionally pause longer to mimic human browsing
+    if random.random() < 0.05:
+        time.sleep(random.uniform(10, 30))
 
 
-def get_item_listing_from_vinted_item(item: VintedItem) -> BeautifulSoup:
-    response = requests.get(item.url, headers=headers())
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    return soup
+def create_session(total_retries=5, backoff_factor=1.0) -> requests.Session:
+    """Create a requests.Session with retry/backoff on certain status codes."""
+    session = requests.Session()
+    retries = Retry(
+        total=total_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[403, 429, 500, 502, 503, 504],
+        allowed_methods=frozenset(['GET', 'POST', 'HEAD', 'OPTIONS'])
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def get_item_listing_from_vinted_item(item: VintedItem, session: requests.Session) -> Optional[BeautifulSoup]:
+    avoid_rate_limit()
+    try:
+        response = session.get(item.url, headers=headers(), timeout=30)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        return soup
+    except requests.HTTPError as error:
+        logger.error(f"Failed request for {item.url} -> {error}")
+        return None
 
 
 def get_child_tag_from_class(
@@ -302,7 +343,7 @@ def parse_image_urls_from_listing(item: VintedItem, soup: BeautifulSoup) -> List
     return urls
 
 
-def request_images(urls: List[str], base_dir: Path):
+def request_images(urls: List[str], base_dir: Path, session: requests.Session):
     """
     Downloads images from list of urls.
     """
@@ -311,10 +352,11 @@ def request_images(urls: List[str], base_dir: Path):
     download_dir.mkdir(exist_ok=True)
     downloaded = 0
     for url in urls:
+        avoid_rate_limit()
         try:
             logger.info(f"Downloading {url}")
 
-            image_data = requests.get(url).content
+            image_data = session.get(url).content
             filename = os.path.basename(url)
             file_path = download_dir / f"{filename}.{IMAGE_EXT}"
 
@@ -326,7 +368,7 @@ def request_images(urls: List[str], base_dir: Path):
                 f.write(image_data)
 
             downloaded += 1
-            avoid_rate_limit()
+            
         except Exception:
             logger.exception(
                 f"Failed downloading {url}",
