@@ -68,6 +68,8 @@ def process_response(items: List[VintedItem], search_text: Optional[str] = None)
         soup = get_item_listing_from_vinted_item(item)
         metadata = get_metadata_from_vinted_item(item)
 
+        logger.info(f"Processing listing: {metadata['url']}")
+
         metadata_from_listing = parse_metadata_from_listing(soup)
         image_urls = parse_image_urls_from_listing(item, soup)
 
@@ -244,11 +246,14 @@ def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str | None]:
     brand_tag = soup.find(
         "a", class_=["inverse", "u-disable-underline-without-hover"], itemprop="url"
     )
-    value = get_child_value_from_itemprop(
-        brand_tag,
-        tag_name="span",
-        itemprop="name",
-    )
+    if brand_tag is None:
+        value = "NO LABEL"  # Default when brand is missing
+    else:
+        value = get_child_value_from_itemprop(
+            brand_tag,
+            tag_name="span",
+            itemprop="name",
+        )
     metadata["brand"] = value
 
     # Description

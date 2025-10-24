@@ -172,7 +172,7 @@ if __name__ == "__main__":
         "One-piece pajamas",
         "Pajama bottoms",
         "Pajama sets",
-        "Pajama tops"
+        "Pajama tops",
     ]
 
     for item in clothing_items:
