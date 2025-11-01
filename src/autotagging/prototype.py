@@ -62,7 +62,8 @@ with open(ground_truth_path, "r") as file:
 model = "gemma3"
 response: GenerateResponse = generate(
     model=model,
-    prompt=system_prompt,
+    system=system_prompt,
+    prompt="my prompt",
     images=images,
     format=ProductDescription.model_json_schema(),
     stream=False,
