@@ -1,0 +1,111 @@
+import json
+from pathlib import Path
+from typing import List, Dict, Any
+
+from vinted_scraper.models import VintedItem
+
+from src.schema.item import Clothing
+from src.schema.item_config import Condition, ClothSize, Gender
+from pathlib import Path
+
+import torch
+from torch.utils.data import Dataset, DataLoader
+import IPython
+from box import Box
+
+# Our scripts
+from src.schema.item import Item
+
+class VintedLoader(DataLoader):
+    """DataLoader wrapper for VintedDataset."""
+
+    def __init__(self,
+                 root: Path,
+                 batch_size: int = 32,
+                 shuffle: bool = True,
+                 num_workers: int = 0,
+                 category: str = None):
+        self.dataset = VintedDataset(root=root, category=category)
+
+        super().__init__(
+            dataset=self.dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=num_workers
+        )
+
+
+class VintedDataset(Dataset):
+    def __init__(self, root: Path, category: str = None):
+        super().__init__()
+        # Dataset directory
+        self.root = Path(root)
+        assert self.root.exists(), f"Dataset directory {root} does not exist."
+
+        self.items = self.fetch_available_items(category=category)
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, idx):
+        return self.items[idx]
+
+    def fetch_available_items(self, category:str = None) -> List[Item]:
+        """Fetch available items from the dataset directory."""
+        items_paths = self.root.glob("*")
+
+        items = []
+        for path in items_paths:
+            full_path = path / "metadata.json"
+            j = self.load_json(full_path)
+
+            if category is None or j.category == category:
+                items.append(self.init_item(j, path))
+        return items
+    
+    @staticmethod
+    def load_json(file_path: Path) -> Dict[str, Any]:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return Box(json.load(f))
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading JSON file {file_path}: {str(e)}")
+            return {}
+
+    @staticmethod
+    def init_item(json_data: Dict[str, Any], path: Path):
+        items_map = {
+            "clothing": Clothing,
+        }
+        item_obj = items_map.get(json_data.category, None)
+        return item_obj(**json_data, path = path) if item_obj is not None else None
+
+    def load_metadata_files(self) -> List[Clothing]:
+        """Load all metadata.json files from the dataset directory."""
+        items = []
+        for metadata_file in self.root.glob("*/metadata.json"):
+            item = self._process_metadata_file(metadata_file)
+            if item:
+                items.append(item)
+        return items
+
+    def _process_metadata_file(self, file_path: Path) -> Clothing:
+        """Process a single metadata.json file and convert it to a Clothing object."""
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            return Clothing(
+                title=data.get('type', ''),
+                brand=data.get('brand', ''),
+                condition=Condition.USED,  # Default value as per schema
+                size=ClothSize(data.get('size')) if 'size' in data else None,
+                gender=Gender(data.get('gender')) if 'gender' in data else None,
+                images=[file_path.parent / img for img in data.get('images', [])]
+            )
+        except Exception as e:
+            print(f"Error processing {file_path}: {str(e)}")
+            return None
+
+if __name__ == "__main__":
+    dataset = VintedDataset(Path("dataset_auto"))
