@@ -1,0 +1,32 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  json_formatter:
+    (): pythonjsonlogger.jsonlogger.JsonFormatter
+    format: "%(asctime)s %(name)s %(levelname)s %(message)s"
+    rename_fields:
+      levelname: level
+      asctime: time
+
+  rich:
+    format: "%(message)s"
+
+handlers:
+  console:
+    # class: logging.StreamHandler
+    # formatter: json_formatter
+    # level: DEBUG
+    class: rich.logging.RichHandler
+    formatter: rich
+    level: DEBUG
+
+loggers:
+  data:
+    handlers: [console]
+    level: DEBUG
+    propagate: False
+
+root:
+  handlers: [console]
+  level: WARNING
