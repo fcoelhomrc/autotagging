@@ -1,8 +1,7 @@
-import logging
 import os
 from typing import Optional, List, Dict
 from pathlib import Path
-import time 
+import time
 import random
 
 import requests
@@ -15,12 +14,13 @@ import json
 from vinted_scraper import VintedScraper
 from vinted_scraper.models import VintedItem
 
+from monitoring.logs import get_logger
 
 DATASET_ROOT_DIR = "dataset_auto"
 IMAGE_EXT = "jpg"  # TODO: check this
 RATE_LIMIT_WAIT = 5  # seconds
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_dir(item: VintedItem) -> Path:
@@ -73,7 +73,7 @@ def process_response(items: List[VintedItem], search_text: Optional[str] = None)
         soup = get_item_listing_from_vinted_item(item, session=session)
         if soup is None:
             logger.warning(f"Cannot proceed with {item.url}, skipping...")
-            continue 
+            continue
         metadata = get_metadata_from_vinted_item(item)
 
         logger.info(f"Processing listing: {metadata['url']}")
@@ -107,7 +107,8 @@ def get_metadata_from_vinted_item(item: VintedItem) -> Optional[dict]:
     TODO: Missing data only available in listing page!
     """
     metadata = {
-        "category": "clothing",
+        "category": None,
+        "gender": None,
         "id": item.id,
         "url": item.url,
         "title": item.title,
@@ -154,7 +155,6 @@ def headers():
     }
 
 
-
 def avoid_rate_limit(base_wait=RATE_LIMIT_WAIT):
     """Randomized wait time with jitter and occasional long pauses."""
     sleep_time = random.uniform(0.75 * base_wait, 1.5 * base_wait)
@@ -171,7 +171,7 @@ def create_session(total_retries=5, backoff_factor=1.0) -> requests.Session:
         total=total_retries,
         backoff_factor=backoff_factor,
         status_forcelist=[403, 429, 500, 502, 503, 504],
-        allowed_methods=frozenset(['GET', 'POST', 'HEAD', 'OPTIONS'])
+        allowed_methods=frozenset(["GET", "POST", "HEAD", "OPTIONS"]),
     )
     adapter = HTTPAdapter(max_retries=retries)
     session.mount("https://", adapter)
@@ -179,7 +179,9 @@ def create_session(total_retries=5, backoff_factor=1.0) -> requests.Session:
     return session
 
 
-def get_item_listing_from_vinted_item(item: VintedItem, session: requests.Session) -> Optional[BeautifulSoup]:
+def get_item_listing_from_vinted_item(
+    item: VintedItem, session: requests.Session
+) -> Optional[BeautifulSoup]:
     avoid_rate_limit()
     try:
         response = session.get(item.url, headers=headers(), timeout=30)
@@ -218,6 +220,37 @@ def get_child_value_from_itemprop(
 ) -> Optional[str]:
     match_ = parent_tag.find(tag_name, itemprop=itemprop)
     return get_value_from_tag(match_)
+
+
+def get_breadcrumbs(soup: BeautifulSoup) -> List[str]:
+    """
+    Returns a list of breadcrumb texts, e.g.
+    ['Home', 'Women', 'Clothing', 'Outerwear', 'Coats', 'Raincoats']
+    """
+    breadcrumbs: List[str] = []
+
+    # 1. Find the <ul class="breadcrumbs ..."> container
+    ul = soup.find("ul", class_=lambda x: x and "breadcrumbs" in x)
+    if not ul:
+        logger.warning(f"Could not match breadcrumbs container!")
+        return breadcrumbs
+
+    # 2. Every <li class="breadcrumbs_item"> is a crumb
+    for li in ul.find_all("li", class_="breadcrumbs__item"):
+        # The visible text lives in the <span itemprop="title"> (first level)
+        # or directly in the <a> tag (deeper levels)
+        span = li.find("span", itemprop="title")
+        if span:
+            text = span.get_text(strip=True)
+        else:
+            # fallback – the link text itself
+            a = li.find("a")
+            text = a.get_text(strip=True) if a else ""
+
+        if text:
+            breadcrumbs.append(text)
+
+    return breadcrumbs
 
 
 def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str | None]:
@@ -315,6 +348,24 @@ def parse_metadata_from_listing(soup: BeautifulSoup) -> Dict[str, str | None]:
         value = get_value_from_tag(description_tag.find("span"))
     metadata["description"] = value
 
+    # Breadcrumbs
+    breadcrumbs = get_breadcrumbs(soup)
+    # FIXME: Is this a good assumption? (e.g. Home/Women/Clothing)
+    if len(breadcrumbs) < 3:
+        logger.warning(
+            f"Unexpected format for breadcrumbs (size {len(breadcrumbs)}): {breadcrumbs}"
+        )
+    else:
+        try:
+            gender = breadcrumbs[1].lower().strip()
+            category = "/".join(breadcrumbs[2:]).lower().strip()
+            metadata["gender"] = gender
+            metadata["category"] = category
+        except Exception as error:
+            logger.exception(
+                f"Failed extracting metadata from breadcrumbs (size {len(breadcrumbs)}): {breadcrumbs}"
+            )
+
     return metadata
 
 
@@ -368,7 +419,7 @@ def request_images(urls: List[str], base_dir: Path, session: requests.Session):
                 f.write(image_data)
 
             downloaded += 1
-            
+
         except Exception:
             logger.exception(
                 f"Failed downloading {url}",
