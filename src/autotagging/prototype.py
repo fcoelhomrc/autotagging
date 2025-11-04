@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import json
 import base64
 from rich import print
+from enum import Enum
 
 
 system_prompt = """
@@ -17,19 +18,37 @@ Here is a short description of each field:
   brand: str - Clothing brand
   status: str - Wear signs?
   color: List[str] - List of all dominant colors
-  gender: str - Is it male, female, or unisex clothing? 
 
 """
+
+
+class Color(Enum):
+    BLUE = "blue"
+    RED = "red"
+    GREEN = "green"
+    BEIGE = "beige"
+    CREAM = "cream"
+    BROWN = "brown"
+    YELLOW = "yellow"
+    WHITE = "white"
+
+
+# def post_processing(output):
+#     if not output.brand_is_visible:
+#         output.brand = None
 
 
 class ProductDescription(BaseModel):
     summary: str
     category: str
     size: int
+
+    brand_is_visible: bool
     brand: str
+
     status: str
-    color: list[str]
-    gender: str
+    color: list[Color]
+    # gender: str
 
 
 def encode_images_to_base64(img_paths):
@@ -42,19 +61,16 @@ def encode_images_to_base64(img_paths):
 
 
 image_paths = [
-    "dataset_mini/sample0001/images/1760113128.webp",
-    "dataset_mini/sample0001/images/1760113128-2.webp",
-    "dataset_mini/sample0001/images/1760113128-3.webp",
-    "dataset_mini/sample0001/images/1760113128-4.webp",
-    "dataset_mini/sample0001/images/1760113128-5.webp",
-    "dataset_mini/sample0001/images/1760113128-6.webp",
-    "dataset_mini/sample0001/images/1760113128-7.webp",
-    "dataset_mini/sample0001/images/1760113128-8.webp",
+    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=4d7f1c50736da261cc52c7e9e2fdbcae0b3f2740.jpg",
+    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=7c56237cac152ef7a574f4a1c0ba335f499c336a.jpg",
+    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=ad8b7b0c38973130e69b6f1756064153150b2817.jpg",
+    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=e0dd60951f0f6326f2c2c37bc365a276c95c5791.jpg",
+    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1688060904.webp?s=56b8000acfe93ebd71429996d86d78727413e041.jpg",
 ]
 
 images = encode_images_to_base64(image_paths)
 
-ground_truth_path = "dataset_mini/sample0001/metadata.json"
+ground_truth_path = "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/metadata.json"
 
 with open(ground_truth_path, "r") as file:
     ground_truth = json.load(file)
@@ -63,7 +79,7 @@ model = "gemma3"
 response: GenerateResponse = generate(
     model=model,
     system=system_prompt,
-    prompt="my prompt",
+    prompt=ground_truth.get("description", ""),
     images=images,
     format=ProductDescription.model_json_schema(),
     stream=False,
