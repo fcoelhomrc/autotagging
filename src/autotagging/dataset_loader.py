@@ -4,8 +4,8 @@ from typing import List, Dict, Any
 
 from vinted_scraper.models import VintedItem
 
-from src.schema.item import Clothing
-from src.schema.item_config import Condition, ClothSize, Gender
+from src.autotagging.schema.item import Clothing
+from src.autotagging.schema.item_config import Condition, ClothSize, Gender
 from pathlib import Path
 
 import torch
@@ -14,7 +14,7 @@ import IPython
 from box import Box
 
 # Our scripts
-from src.schema.item import Item
+from src.autotagging.schema.item import Item
 
 class VintedLoader(DataLoader):
     """DataLoader wrapper for VintedDataset."""
@@ -36,7 +36,7 @@ class VintedLoader(DataLoader):
 
 
 class VintedDataset(Dataset):
-    def __init__(self, root: Path, category: str = None):
+    def __init__(self, root: Path, category: str = None, compute_class_sets: bool = False):
         super().__init__()
         # Dataset directory
         self.root = Path(root)
@@ -44,6 +44,8 @@ class VintedDataset(Dataset):
 
         self.items = self.fetch_available_items(category=category)
 
+        if compute_class_sets:
+            self._compute_class_sets()
     def __len__(self):
         return len(self.items)
 
@@ -77,8 +79,10 @@ class VintedDataset(Dataset):
         items_map = {
             "clothing": Clothing,
         }
+
         item_obj = items_map.get(json_data.category, None)
         return item_obj(**json_data, path = path) if item_obj is not None else None
+    
 
     def load_metadata_files(self) -> List[Clothing]:
         """Load all metadata.json files from the dataset directory."""
@@ -107,5 +111,65 @@ class VintedDataset(Dataset):
             print(f"Error processing {file_path}: {str(e)}")
             return None
 
+    def _compute_class_sets(self) -> Dict[str, List[str]]:
+        """Get unique class sets for categorical attributes."""
+        
+        class_sets = {
+            "category": set(),
+            "status": set(),
+            "color": set(),
+            "size": set(),
+        }
+
+        for item in self.items:
+            class_sets["category"].add(item.category)
+
+            if isinstance(item, Clothing):
+                class_sets["status"].add(item.status)
+                for color in item.color:
+                    class_sets["color"].add(color)
+                if item.size:
+                    class_sets["size"].add(item.size.name)
+
+class ComputeDatasetStats:
+    """Compute dataset statistics such as number of items per category."""
+
+    def __init__(self, dataset: VintedDataset):
+        self.dataset = dataset
+
+        # TODO: fds depois melhor isto
+        print(self.compute_category_distribution("brand"))
+        print(self.compute_category_distribution("color"))
+        print(self.compute_category_distribution("status"))
+        print(self.compute_category_distribution("size"))
+        print(self.compute_category_distribution("gender"))
+        print(self.compute_category_distribution("material"))
+
+    def compute_category_distribution(self, category) -> Dict[str, int]:
+        print(f"Computing distribution for category: {category}")
+        counts = {"nan": 0}
+        for sample in self.dataset:
+            value = sample[category]
+
+            if value is None:
+                counts["nan"] += 1
+                continue
+
+            elif category == "color" or category == "material":
+                items = value.split(", ")
+
+                for idx_item in items:
+                    if idx_item not in counts.keys():
+                        counts[idx_item] = 0
+                    counts[idx_item] += 1
+                    
+            else:
+                if value not in counts.keys() and value is not None:
+                    counts[value] = 0
+
+                counts[value if value is not None else "nan"] += 1
+        return dict(sorted(counts.items(), key=lambda item: item[1], reverse=True)) # return dict ordered by values
+
 if __name__ == "__main__":
     dataset = VintedDataset(Path("dataset_auto"))
+    ComputeDatasetStats(dataset=dataset)
