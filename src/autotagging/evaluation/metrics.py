@@ -1,13 +1,37 @@
-from torchmetrics import JaccardIndex
+from torchmetrics import (
+    JaccardIndex, Accuracy, 
+)
 
 
-def EvaluationWrapper:
+from pydantic import BaseModel
+from enum import Enum 
 
+
+class Color(Enum):
+    BLUE = "blue"
+    RED = "red"
+
+
+class ClassificationOutput(BaseModel):
+    category: int
+    status: int
+    color: list[Color]
+
+
+
+
+
+
+class ClassificationMetrics:
+    
     def __init__(self):
         
-        self.color_metrics = [
-            JaccardIndex()
-        ]
+        pass 
+
+    def update():
+
+
+    
 
 
 

@@ -1,10 +1,11 @@
 from ollama import generate
 from ollama import GenerateResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field 
+from typing import List 
 import json
 import base64
 from rich import print
-from enum import Enum
+from enum import StrEnum, auto 
 
 
 system_prompt = """
@@ -22,17 +23,50 @@ Here is a short description of each field:
 """
 
 
-class Color(Enum):
-    BLUE = "blue"
-    RED = "red"
-    GREEN = "green"
-    BEIGE = "beige"
-    CREAM = "cream"
-    BROWN = "brown"
-    YELLOW = "yellow"
-    WHITE = "white"
+class Color(StrEnum):
+    blue = auto()
+    red  = auto()
+    cream = auto()
+    beige = auto()
+    white = auto() 
+
+class Status(StrEnum):
+    new_with_tags = auto()
+    new_without_tags = auto()
+    very_good = auto()
+    good = auto()
+    satisfactory = auto()
 
 
+class Gender(StrEnum):
+    male = auto()
+    female = auto()
+    unisex = auto()
+
+
+class Category(StrEnum):
+    coat = auto()
+    skirt = auto()
+    tshirt = auto()
+    scarf = auto()
+    pants = auto()
+
+
+class ClassificationOutput(BaseModel):
+    category: Category = Field(
+        description="The type of clothing item."
+    )
+    # status: Status = Field(
+    #     description="The condition of the item: satisfactory, good, very good, new without tags, new with tags."
+    # )
+    # gender: Gender = Field(
+    #     description="The target gender: male, female, or unisex."
+    # )
+    # color: List[Color] = Field(
+    #     description="One or more colors present on the item."
+    # )
+
+#
 # def post_processing(output):
 #     if not output.brand_is_visible:
 #         output.brand = None
@@ -49,6 +83,10 @@ class ProductDescription(BaseModel):
     status: str
     color: list[Color]
     # gender: str
+
+
+
+
 
 
 def encode_images_to_base64(img_paths):
@@ -81,10 +119,14 @@ response: GenerateResponse = generate(
     system=system_prompt,
     prompt=ground_truth.get("description", ""),
     images=images,
-    format=ProductDescription.model_json_schema(),
+    format=ClassificationOutput.model_json_schema(),
     stream=False,
     options={"temperature": 0},
 )
 
 print(f"Ground Truth: {ground_truth}")
 print(f"Prediction: {response.response}")
+
+
+# Test inference speed 
+
