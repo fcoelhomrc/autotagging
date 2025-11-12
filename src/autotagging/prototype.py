@@ -5,7 +5,8 @@ from typing import List
 import json
 import base64
 from rich import print
-from enum import StrEnum, auto 
+from enum import StrEnum, auto
+import time 
 
 
 system_prompt = """
@@ -56,15 +57,15 @@ class ClassificationOutput(BaseModel):
     category: Category = Field(
         description="The type of clothing item."
     )
-    # status: Status = Field(
-    #     description="The condition of the item: satisfactory, good, very good, new without tags, new with tags."
-    # )
-    # gender: Gender = Field(
-    #     description="The target gender: male, female, or unisex."
-    # )
-    # color: List[Color] = Field(
-    #     description="One or more colors present on the item."
-    # )
+    status: Status = Field(
+        description="The condition of the item: satisfactory, good, very good, new without tags, new with tags."
+    )
+    gender: Gender = Field(
+        description="The target gender: male, female, or unisex."
+    )
+    color: List[Color] = Field(
+        description="One or more colors present on the item."
+    )
 
 #
 # def post_processing(output):
@@ -99,20 +100,19 @@ def encode_images_to_base64(img_paths):
 
 
 image_paths = [
-    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=4d7f1c50736da261cc52c7e9e2fdbcae0b3f2740.jpg",
-    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=7c56237cac152ef7a574f4a1c0ba335f499c336a.jpg",
-    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=ad8b7b0c38973130e69b6f1756064153150b2817.jpg",
-    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1630429595.webp?s=e0dd60951f0f6326f2c2c37bc365a276c95c5791.jpg",
-    "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/images/1688060904.webp?s=56b8000acfe93ebd71429996d86d78727413e041.jpg",
+    "dataset_auto/7416537936/images/1761519527.webp?s=0ff11b3b427eef3f803bae50e7e4f5acc0af57a5.jpg",
+    "dataset_auto/7416537936/images/1761519527.webp?s=2637a1cb98f4266d799cb51f4ae958a5f9d77ec7.jpg",
+    "dataset_auto/7416537936/images/1761519527.webp?s=c42ba871d6010c94df28c00d9dfa3985509ce6d8.jpg",
 ]
 
 images = encode_images_to_base64(image_paths)
 
-ground_truth_path = "/home/felipe/Datasets/VINTED_DATASET_V1/1367673551/metadata.json"
+ground_truth_path = "dataset_auto/7416537936/metadata.json"
 
 with open(ground_truth_path, "r") as file:
     ground_truth = json.load(file)
 
+start_time = time.time()
 model = "gemma3"
 response: GenerateResponse = generate(
     model=model,
@@ -123,7 +123,7 @@ response: GenerateResponse = generate(
     stream=False,
     options={"temperature": 0},
 )
-
+print(f"Execution time: {time.time() - start_time:.2f}s\n")
 print(f"Ground Truth: {ground_truth}")
 print(f"Prediction: {response.response}")
 

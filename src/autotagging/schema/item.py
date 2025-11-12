@@ -46,15 +46,26 @@ class Clothing(Item):
     """
     Represents a clothing item with specific attributes for apparel.
     """
+    #gender: Gender = Gender.UNISEX
 
-    brand: str
-    status: Condition
-    color: List[str] = field(default_factory=list)
-    material: Optional[str] = None
-    # gender: Gender = Gender.UNISEX
-
-    def __init__(self, **kwargs):
+    def __init__(self, 
+            brand: str,
+            status: Condition,
+            color: List[str] = field(default_factory=list),
+            material: Optional[str] = None,
+            **kwargs):
         super().__init__(**kwargs)
+        self.brand = brand
+        self.status = status
+        self.color = color
+        self.material = material
+
+    def __getitem__(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        else:
+            return None
 
     def __repr__(self):
         return f"<Clothe({len(self.images)}): {self.id}>"
+    
