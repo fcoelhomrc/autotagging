@@ -1,7 +1,9 @@
 from enum import Enum
 
+
 class Category(Enum):
     Clothes = "clothes"
+
 
 class Condition(Enum):
     NEW_TAGS = "new_with_tags"
@@ -10,10 +12,12 @@ class Condition(Enum):
     GOOD = "good"
     SATISFACTORY = "satisfactory"
 
+
 class Gender(Enum):
     MALE = "male"
     FEMALE = "female"
     UNISEX = "unisex"
+
 
 class ClothSize(Enum):
     XXXS = "XXXS"
@@ -32,11 +36,13 @@ class ClothSize(Enum):
     XXXXXXXXL = "8XL"
     XXXXXXXXXL = "9XL"
 
+
 class SizeSystem(Enum):
     EU = "EU"
     US = "US"
     UK = "UK"
     INTL = "INTL"
+
 
 class SizeNormalizer:
     """Converts various size systems (EU/US/UK) to internal ClothSize."""
@@ -74,7 +80,7 @@ class SizeNormalizer:
         "20": ClothSize.XXXXXXL,
         "22": ClothSize.XXXXXXXL,
         "24": ClothSize.XXXXXXXXL,
-        "26": ClothSize.XXXXXXXXXL
+        "26": ClothSize.XXXXXXXXXL,
     }
 
     _UK_MAP = {
@@ -92,14 +98,14 @@ class SizeNormalizer:
         "24": ClothSize.XXXXXXL,
         "26": ClothSize.XXXXXXXL,
         "28": ClothSize.XXXXXXXXL,
-        "30": ClothSize.XXXXXXXXXL
+        "30": ClothSize.XXXXXXXXXL,
     }
 
     def convert(self, size: str, system: SizeSystem) -> ClothSize:
         size_maps = {
             SizeSystem.EU: self._EU_MAP,
             SizeSystem.US: self._US_MAP,
-            SizeSystem.UK: self._UK_MAP
+            SizeSystem.UK: self._UK_MAP,
         }
 
         if system not in size_maps:
