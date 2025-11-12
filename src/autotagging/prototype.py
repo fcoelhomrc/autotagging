@@ -4,6 +4,8 @@ from pydantic import BaseModel
 import json
 import base64
 from rich import print
+from enum import StrEnum, auto
+import time 
 
 
 system_prompt = """
@@ -20,6 +22,55 @@ Here is a short description of each field:
   gender: str - Is it male, female, or unisex clothing? 
 
 """
+
+
+class Color(StrEnum):
+    blue = auto()
+    red  = auto()
+    cream = auto()
+    beige = auto()
+    white = auto() 
+
+class Status(StrEnum):
+    new_with_tags = auto()
+    new_without_tags = auto()
+    very_good = auto()
+    good = auto()
+    satisfactory = auto()
+
+
+class Gender(StrEnum):
+    male = auto()
+    female = auto()
+    unisex = auto()
+
+
+class Category(StrEnum):
+    coat = auto()
+    skirt = auto()
+    tshirt = auto()
+    scarf = auto()
+    pants = auto()
+
+
+class ClassificationOutput(BaseModel):
+    category: Category = Field(
+        description="The type of clothing item."
+    )
+    status: Status = Field(
+        description="The condition of the item: satisfactory, good, very good, new without tags, new with tags."
+    )
+    gender: Gender = Field(
+        description="The target gender: male, female, or unisex."
+    )
+    color: List[Color] = Field(
+        description="One or more colors present on the item."
+    )
+
+#
+# def post_processing(output):
+#     if not output.brand_is_visible:
+#         output.brand = None
 
 
 class ProductDescription(BaseModel):
@@ -42,23 +93,19 @@ def encode_images_to_base64(img_paths):
 
 
 image_paths = [
-    "dataset_mini/sample0001/images/1760113128.webp",
-    "dataset_mini/sample0001/images/1760113128-2.webp",
-    "dataset_mini/sample0001/images/1760113128-3.webp",
-    "dataset_mini/sample0001/images/1760113128-4.webp",
-    "dataset_mini/sample0001/images/1760113128-5.webp",
-    "dataset_mini/sample0001/images/1760113128-6.webp",
-    "dataset_mini/sample0001/images/1760113128-7.webp",
-    "dataset_mini/sample0001/images/1760113128-8.webp",
+    "dataset_auto/7416537936/images/1761519527.webp?s=0ff11b3b427eef3f803bae50e7e4f5acc0af57a5.jpg",
+    "dataset_auto/7416537936/images/1761519527.webp?s=2637a1cb98f4266d799cb51f4ae958a5f9d77ec7.jpg",
+    "dataset_auto/7416537936/images/1761519527.webp?s=c42ba871d6010c94df28c00d9dfa3985509ce6d8.jpg",
 ]
 
 images = encode_images_to_base64(image_paths)
 
-ground_truth_path = "dataset_mini/sample0001/metadata.json"
+ground_truth_path = "dataset_auto/7416537936/metadata.json"
 
 with open(ground_truth_path, "r") as file:
     ground_truth = json.load(file)
 
+start_time = time.time()
 model = "gemma3"
 response: GenerateResponse = generate(
     model=model,
@@ -69,6 +116,6 @@ response: GenerateResponse = generate(
     stream=False,
     options={"temperature": 0},
 )
-
+print(f"Execution time: {time.time() - start_time:.2f}s\n")
 print(f"Ground Truth: {ground_truth}")
 print(f"Prediction: {response.response}")

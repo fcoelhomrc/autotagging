@@ -3,9 +3,6 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 from vinted_scraper.models import VintedItem
-
-from src.autotagging.schema.item import Clothing
-from src.autotagging.schema.item_config import Condition, ClothSize, Gender
 from pathlib import Path
 
 import torch
@@ -14,7 +11,9 @@ import IPython
 from box import Box
 
 # Our scripts
-from src.autotagging.schema.item import Item
+from src.autotagging.schema.item import Item, Clothing
+from src.autotagging.schema.item_config import Condition, ClothSize, Gender
+
 
 class VintedLoader(DataLoader):
     """DataLoader wrapper for VintedDataset."""
@@ -43,6 +42,7 @@ class VintedDataset(Dataset):
         assert self.root.exists(), f"Dataset directory {root} does not exist."
 
         self.items = self.fetch_available_items(category=category)
+        self.remove_none_items()
 
         if compute_class_sets:
             self._compute_class_sets()
@@ -64,7 +64,13 @@ class VintedDataset(Dataset):
             if category is None or j.category == category:
                 items.append(self.init_item(j, path))
         return items
-    
+
+    def remove_none_items(self):
+        dataset_size_before = len(self.items)
+        self.items = [item for item in self.items if item is not None]
+        
+        print(f"Removed {dataset_size_before - len(self.items)} items from the dataset due to category not found.")
+
     @staticmethod
     def load_json(file_path: Path) -> Dict[str, Any]:
         try:
@@ -80,9 +86,9 @@ class VintedDataset(Dataset):
             "clothing": Clothing,
         }
 
-        item_obj = items_map.get(json_data.category, None)
-        return item_obj(**json_data, path = path) if item_obj is not None else None
-    
+        category = json_data.category.split('/')[0]
+        item_obj = items_map.get(category, None)
+        return item_obj(**json_data, path=path) if item_obj is not None else None
 
     def load_metadata_files(self) -> List[Clothing]:
         """Load all metadata.json files from the dataset directory."""
@@ -171,5 +177,7 @@ class ComputeDatasetStats:
         return dict(sorted(counts.items(), key=lambda item: item[1], reverse=True)) # return dict ordered by values
 
 if __name__ == "__main__":
-    dataset = VintedDataset(Path("dataset_auto"))
-    ComputeDatasetStats(dataset=dataset)
+    dataset = VintedDataset(Path("dataset_auto/"))
+    print(len(dataset))
+    for item in iter(dataset):
+        print(item)
