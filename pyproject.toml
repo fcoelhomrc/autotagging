@@ -19,8 +19,8 @@ dependencies = [
     "requests>=2.31.0",
     "beautifulsoup4>=4.14.2",
     "vinted-scraper>=2.4.0",
-    "python-box>=7.3.2"
-
+    "python-box>=7.3.2",
+    "transformers>=4.57.1",
 ]
 
 [tool.uv.sources]
