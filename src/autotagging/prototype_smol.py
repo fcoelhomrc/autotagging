@@ -72,27 +72,30 @@ if __name__ == "__main__":
 
 
     # SmolVLM Model(https://huggingface.co/blog/smolvlm)
-    model_id = "HuggingFaceTB/SmolVLM-Base"
+    model_id = "HuggingFaceTB/SmolVLM-Instruct"
     processor = AutoProcessor.from_pretrained(model_id)
 
     model = AutoModelForImageTextToText.from_pretrained(
         model_id,
         dtype=torch.bfloat16,
-        _attn_implementation="flash_attention_2" if DEVICE == "cuda" else "eager",
+        _attn_implementation="sdpa" if DEVICE == "cuda" else "eager", # flash attention is also available but requires setup.
     ).to(DEVICE)
 
     # Prompt
     messages = smol_message_json(images, metadata)
-    prompt = processor.apply_chat_template(messages, add_generation_prompt=False) #add_generation_prompt only appends a "Assistant:" at the end
+    prompt = processor.apply_chat_template(messages, add_generation_prompt=True) #add_generation_prompt only appends a "Assistant:" at the end
     print("Messages:", messages)
     print("Prompt:", prompt)
 
     # Inputs
+    #inputs = processor(text=prompt, return_tensors="pt").to(DEVICE)
     inputs = processor(text=prompt, images=images, return_tensors="pt").to(DEVICE)
 
     # Generate
     start = time.time()
-    generated_ids = model.generate(**inputs, max_new_tokens=500)
+    generated_ids = model.generate(
+        **inputs, 
+        max_new_tokens=50000)
     end = time.time()
     print(f"Generation took {end - start:.2f} seconds")
     print("Generated IDs:", generated_ids)
