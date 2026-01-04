@@ -6,7 +6,7 @@ from typing import List, Optional
 from uuid import uuid4
 from pathlib import Path
 
-from src.autotagging.schema.item_config import *
+from schema.item_config import *
 
 
 @dataclass(kw_only=True)
@@ -14,13 +14,16 @@ class Item:
     """
     Represents an item in your shop.
     """
-    def __init__(self,
-                 id: int,
-                 path: Path,
-                 category: str = "",
-                 title: str = "",
-                 description: str = "",
-                 **kwargs):
+
+    def __init__(
+        self,
+        id: int,
+        path: Path,
+        category: str = "",
+        title: str = "",
+        description: str = "",
+        **kwargs,
+    ):
         self.id = id
         self.path = path
         self.category = category

@@ -1,6 +1,7 @@
 from ollama import generate
 from ollama import GenerateResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field 
+from typing import List 
 import json
 import base64
 from rich import print
@@ -19,7 +20,6 @@ Here is a short description of each field:
   brand: str - Clothing brand
   status: str - Wear signs?
   color: List[str] - List of all dominant colors
-  gender: str - Is it male, female, or unisex clothing? 
 
 """
 
@@ -77,10 +77,17 @@ class ProductDescription(BaseModel):
     summary: str
     category: str
     size: int
+
+    brand_is_visible: bool
     brand: str
+
     status: str
-    color: list[str]
-    gender: str
+    color: list[Color]
+    # gender: str
+
+
+
+
 
 
 def encode_images_to_base64(img_paths):
@@ -110,12 +117,16 @@ model = "gemma3"
 response: GenerateResponse = generate(
     model=model,
     system=system_prompt,
-    prompt="my prompt",
+    prompt=ground_truth.get("description", ""),
     images=images,
-    format=ProductDescription.model_json_schema(),
+    format=ClassificationOutput.model_json_schema(),
     stream=False,
     options={"temperature": 0},
 )
 print(f"Execution time: {time.time() - start_time:.2f}s\n")
 print(f"Ground Truth: {ground_truth}")
 print(f"Prediction: {response.response}")
+
+
+# Test inference speed 
+

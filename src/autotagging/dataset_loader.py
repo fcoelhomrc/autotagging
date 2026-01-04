@@ -11,26 +11,27 @@ import IPython
 from box import Box
 
 # Our scripts
-from src.autotagging.schema.item import Item, Clothing
-from src.autotagging.schema.item_config import Condition, ClothSize, Gender
+from schema.item import Item
 
 
 class VintedLoader(DataLoader):
     """DataLoader wrapper for VintedDataset."""
 
-    def __init__(self,
-                 root: Path,
-                 batch_size: int = 32,
-                 shuffle: bool = True,
-                 num_workers: int = 0,
-                 category: str = None):
+    def __init__(
+        self,
+        root: Path,
+        batch_size: int = 32,
+        shuffle: bool = True,
+        num_workers: int = 0,
+        category: str = None,
+    ):
         self.dataset = VintedDataset(root=root, category=category)
 
         super().__init__(
             dataset=self.dataset,
             batch_size=batch_size,
             shuffle=shuffle,
-            num_workers=num_workers
+            num_workers=num_workers,
         )
 
 
@@ -52,7 +53,7 @@ class VintedDataset(Dataset):
     def __getitem__(self, idx):
         return self.items[idx]
 
-    def fetch_available_items(self, category:str = None) -> List[Item]:
+    def fetch_available_items(self, category: str = None) -> List[Item]:
         """Fetch available items from the dataset directory."""
         items_paths = self.root.glob("*")
 
@@ -74,7 +75,7 @@ class VintedDataset(Dataset):
     @staticmethod
     def load_json(file_path: Path) -> Dict[str, Any]:
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return Box(json.load(f))
         except (json.JSONDecodeError, IOError) as e:
             print(f"Error loading JSON file {file_path}: {str(e)}")
@@ -102,16 +103,16 @@ class VintedDataset(Dataset):
     def _process_metadata_file(self, file_path: Path) -> Clothing:
         """Process a single metadata.json file and convert it to a Clothing object."""
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 data = json.load(f)
 
             return Clothing(
-                title=data.get('type', ''),
-                brand=data.get('brand', ''),
+                title=data.get("type", ""),
+                brand=data.get("brand", ""),
                 condition=Condition.USED,  # Default value as per schema
-                size=ClothSize(data.get('size')) if 'size' in data else None,
-                gender=Gender(data.get('gender')) if 'gender' in data else None,
-                images=[file_path.parent / img for img in data.get('images', [])]
+                size=ClothSize(data.get("size")) if "size" in data else None,
+                gender=Gender(data.get("gender")) if "gender" in data else None,
+                images=[file_path.parent / img for img in data.get("images", [])],
             )
         except Exception as e:
             print(f"Error processing {file_path}: {str(e)}")
