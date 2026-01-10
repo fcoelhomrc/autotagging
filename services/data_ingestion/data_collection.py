@@ -1,4 +1,4 @@
-from data.scraping import query, process_response
+from scraping import query, process_response
 
 
 def main(query_text: str):

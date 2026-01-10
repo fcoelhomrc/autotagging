@@ -21,10 +21,14 @@ dependencies = [
     "vinted-scraper>=2.4.0",
     "python-box>=7.3.2",
     "transformers>=4.57.1",
-    
+    "fastapi>=0.128.0",
+    "python-multipart>=0.0.21",
+    "uvicorn>=0.40.0",
     #"flash-attn>=2.8.0",
     #"psutil>=7.1.3",
     "torchmetrics>=1.8.2",
+    "minio>=7.2.20",
+    "sqlalchemy>=2.0.45"
 ]
 
 

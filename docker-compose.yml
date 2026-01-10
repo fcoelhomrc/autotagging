@@ -1,0 +1,61 @@
+name: mlops-vinted
+
+volumes:
+  pgdata:
+    name: "postgresql-data"
+
+
+
+networks:
+  mlops-net:
+
+services:
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: label-studio
+    
+    networks: [mlops-net]
+    profiles: ["etl"]
+    restart: unless-stopped
+    user: "1001:1500"
+    ports:
+      - "8080:8080"
+    environment:
+      - DJANGO_DB=postgresql
+      - POSTGRE_NAME=postgres
+      - POSTGRE_HOST=postgresql
+      - POSTGRE_USER=${LABEL_STUDIO_POSTGRES_USER}
+      - POSTGRE_PASSWORD=${LABEL_STUDIO_POSTGRES_PASSWORD}
+      - POSTGRE_PORT=5432
+      - LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio
+    volumes:
+      - ./dataset_delete:/label-studio/dataset:ro
+    depends_on: [postgresql]
+
+  postgresql:
+    image: postgres:18.1
+    container_name: postgresql
+    networks: [mlops-net]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGTZ: UTC
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./services/db/init:/docker-entrypoint-initdb.d/
+    profiles: ["etl"]
+
+  dataset-http-server:
+    image: python:3.11.14-alpine
+    container_name: dataset-http-server
+    networks: [mlops-net]
+    profiles: ["etl"]
+    volumes:
+      - ./dataset_bak:/dataset:ro
+    ports:
+      - "8001:8001"
+    command: ["python3", "-m", "http.server", "8001", "--directory", "/dataset"]
