@@ -1,6 +1,5 @@
 # AutoTagging
-
-<p align="center">
+<p align="left">
     Automatically fill listing metadata for platforms like Vinted with locally-depolyed VLMs. 
 </p>
 
